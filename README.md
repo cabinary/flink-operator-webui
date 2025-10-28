@@ -19,7 +19,7 @@ A Web UI for managing Apache Flink deployments on Kubernetes using the Flink Kub
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/cabinary/flink-operator-webui.git
+git clone https://github.com/YOUR_USERNAME/flink-operator-webui.git
 cd flink-operator-webui
 ```
 

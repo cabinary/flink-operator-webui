@@ -50,6 +50,8 @@ spec:
       serviceAccountName: flink-operator-webui
       containers:
       - name: webui
+        # Replace with your actual container registry and image tag
+        # Example: image: ghcr.io/your-org/flink-operator-webui:v1.0.0
         image: your-registry/flink-operator-webui:latest
         ports:
         - containerPort: 3000
