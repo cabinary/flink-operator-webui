@@ -77,27 +77,75 @@ export async function patchFlinkDeployment(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   patch: any
 ): Promise<FlinkDeployment> {
-  const client = getCustomObjectsApi();
+  const kc = getKubeConfig();
   
   try {
-    // First, get the current deployment
-    const current = await getFlinkDeployment(namespace, name);
+    // Get cluster info
+    const cluster = kc.getCurrentCluster();
+    if (!cluster) {
+      throw new Error('No current cluster configured');
+    }
     
-    // Merge the patch with the current deployment
-    const updated: FlinkDeployment = {
-      ...current,
-      spec: {
-        ...current.spec,
-        ...(patch.spec || {}),
-        job: {
-          ...current.spec.job,
-          ...(patch.spec?.job || {}),
-        },
+    // Build the API URL
+    const url = `${cluster.server}/apis/flink.apache.org/v1beta1/namespaces/${namespace}/flinkdeployments/${name}`;
+    
+    // Prepare HTTPS options with proper SSL handling from kubeconfig
+    const opts: any = {
+      headers: {}
+    };
+    await kc.applyToHTTPSOptions(opts);
+    
+    // Import https module for making request with proper SSL
+    const https = await import('https');
+    const { URL } = await import('url');
+    
+    const parsedUrl = new URL(url);
+    const postData = JSON.stringify(patch);
+    
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || 443,
+      path: parsedUrl.pathname,
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/merge-patch+json',
+        'Content-Length': Buffer.byteLength(postData),
+        ...(opts.headers || {}),
       },
+      ca: opts.ca,
+      cert: opts.cert,
+      key: opts.key,
+      rejectUnauthorized: opts.rejectUnauthorized !== false,
     };
     
-    const response = await client.patch(updated as unknown as k8s.KubernetesObject);
-    return response as FlinkDeployment;
+    return new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            try {
+              resolve(JSON.parse(data) as FlinkDeployment);
+            } catch (e) {
+              reject(new Error(`Failed to parse response: ${e}`));
+            }
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+          }
+        });
+      });
+      
+      req.on('error', (error) => {
+        reject(error);
+      });
+      
+      req.write(postData);
+      req.end();
+    });
   } catch (error) {
     console.error('Error patching FlinkDeployment:', error);
     throw error;
@@ -131,4 +179,3 @@ export async function resumeFlinkDeployment(
     }
   });
 }
-
