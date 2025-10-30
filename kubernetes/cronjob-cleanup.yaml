@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: delete-suspended-flinkdeployments
+  namespace: flink
+spec:
+  schedule: "*/1 * * * *"
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: flink-cleaner-sa
+          restartPolicy: OnFailure
+          containers:
+            - name: flink-cleaner
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "[`date`] Checking for suspended FlinkDeployments..."
+                  for ns in $(kubectl get ns --no-headers -o custom-columns=NAME:.metadata.name); do
+                    kubectl get flinkdeployments.flink.apache.org -n $ns -o json \
+                    | jq -r '.items[] | select(.spec.job.state=="suspended") | .metadata.name' \
+                    | xargs -r -I{} kubectl delete flinkdeployment.flink.apache.org -n $ns {}
+                  done
