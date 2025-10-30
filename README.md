@@ -2,6 +2,12 @@
 
 A Web UI for managing Apache Flink deployments on Kubernetes using the Flink Kubernetes Operator.
 
+## Update
+### 2025-10-30
+Added logic for CronJob to automatically clean up suspended tasks.
+Currently, no security authentication is configured.
+If you need to deploy it, please expose resources like Ingress or HTTPRoute within a secure internal network. Alternatively, you can implement secure access yourself by adding an outer layer such as Nginx Basic Auth or the Envoy Auth module.
+
 ## Features
 
 - 🔍 **Monitor Deployments**: View all FlinkDeployment resources across your Kubernetes cluster
